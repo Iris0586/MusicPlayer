@@ -56,12 +56,14 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    // 引入 Compose 扩展图标库（提供 Pause, SkipNext, SkipPrevious 等）
+    implementation("androidx.compose.material:material-icons-extended")
     // ViewModel 与 Flow 协作
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
-    implementation("androidx.media3:media3-common:1.4.1")
     // Google 官方 Media3 (ExoPlayer) 播放器核心库
-    implementation("androidx.media3:media3-session:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
     //前台服务和 MediaSession 相关支持
+    implementation("androidx.media3:media3-session:1.4.1")
 }

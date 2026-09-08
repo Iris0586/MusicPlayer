@@ -1,136 +1,164 @@
 package com.example.mviplayer.ui.player
 
-import android.app.Application
-import android.util.Log
-import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.unit.sp
+import java.util.Locale
 
 @Composable
-fun PlayerScreen() {
-    val context = LocalContext.current
-
-    val viewModel: PlayerViewModel = viewModel(
-        factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(
-            context.applicationContext as Application
-        )
-    )
-
-    val state by viewModel.uiState.collectAsState()
-
-    // 面试打印点：日志观察主页面重组
-    Log.d("ComposeOptimization", "--> PlayerScreen (全页) 重组")
-
-    LaunchedEffect(key1 = Unit) {
-        viewModel.effect.collectLatest { effect ->
-            when (effect) {
-                is PlayerContract.Effect.ShowToast -> {
-                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
+fun PlayerScreen(
+    state: PlayerContract.State,
+    onEvent: (PlayerContract.Event) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 标题部分（低频变化）
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 当前歌曲信息展示
         Text(
-            text = state.mediaTitle,
-            style = MaterialTheme.typography.headlineSmall
+            text = state.currentSong?.title ?: "未选择歌曲",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = state.currentSong?.artist ?: "未知歌手",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // 核心亮点：抽离的高频进度条小组件（隔离重组范围）
-        PlayerProgressBar(
-            currentPositionMs = state.currentPositionMs,
-            durationMs = state.durationMs,
-            onSeek = { newPos ->
-                viewModel.setEvent(PlayerContract.Event.SeekTo(newPos))
-            }
+        // 播放进度拖动条
+        Slider(
+            value = if (state.durationMs > 0) state.currentPositionMs.toFloat() else 0f,
+            onValueChange = { onEvent(PlayerContract.Event.SeekTo(it.toLong())) },
+            valueRange = 0f..(if (state.durationMs > 0) state.durationMs.toFloat() else 1f),
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // 控制按钮部分（低频变化）
+        // 时间戳
         Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            if (state.isPlaying) {
-                Button(onClick = { viewModel.setEvent(PlayerContract.Event.PauseClick) }) {
-                    Text("暂停")
-                }
-            } else {
-                Button(onClick = { viewModel.setEvent(PlayerContract.Event.PlayClick) }) {
-                    Text("播放")
+            Text(text = formatDuration(state.currentPositionMs), fontSize = 12.sp)
+            Text(text = formatDuration(state.durationMs), fontSize = 12.sp)
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 核心控制区（上一首 / 播放与暂停 / 下一首）
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onEvent(PlayerContract.Event.PreviousSong) }) {
+                Icon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = "上一首",
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+
+            FloatingActionButton(
+                onClick = { onEvent(PlayerContract.Event.PlayPause) },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = "播放暂停",
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            IconButton(onClick = { onEvent(PlayerContract.Event.NextSong) }) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "下一首",
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+        Divider()
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 在线播放列表
+        Text(
+            text = "播放列表",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.Start)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            items(state.playlist) { song ->
+                val isCurrent = song.id == state.currentSong?.id
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEvent(PlayerContract.Event.SelectSong(song)) }
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = song.title,
+                            color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            text = song.artist,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    if (isCurrent) {
+                        Text(
+                            text = if (state.isPlaying) "播放中" else "已暂停",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/**
- * 优化亮点小组件：独立的进度条组件
- * 通过 derivedStateOf 派生状态，实现高频刷新防抖与重组范围隔离
- */
-@Composable
-fun PlayerProgressBar(
-    currentPositionMs: Long,
-    durationMs: Long,
-    onSeek: (Long) -> Unit
-) {
-    // 打印日志：观察小组件重组
-    Log.d("ComposeOptimization", "====> PlayerProgressBar (仅进度条) 重组")
-
-    // 使用 derivedStateOf 派生状态：将毫秒转为秒，只有秒数改变时才触发刷新
-    val currentSecond by remember(currentPositionMs) {
-        derivedStateOf { currentPositionMs / 1000 }
-    }
-    val totalSecond by remember(durationMs) {
-        derivedStateOf { durationMs / 1000 }
-    }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Slider(
-            value = currentPositionMs.toFloat(),
-            onValueChange = { newPos -> onSeek(newPos.toLong()) },
-            valueRange = 0f..(if (durationMs > 0) durationMs.toFloat() else 1f),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = "${currentSecond}s")
-            Text(text = "${totalSecond}s")
-        }
-    }
+private fun formatDuration(millis: Long): String {
+    val totalSeconds = (millis / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }

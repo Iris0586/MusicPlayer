@@ -3,27 +3,27 @@ package com.example.mviplayer.ui.player
 import com.example.mviplayer.base.UiEffect
 import com.example.mviplayer.base.UiEvent
 import com.example.mviplayer.base.UiState
+import com.example.mviplayer.data.Song
 
 class PlayerContract {
 
-    // 1. 定义播放器状态 (State)
-    data class State(
-        val isPlaying: Boolean = false,
-        val mediaTitle: String = "未开始播放",
-        val currentPositionMs: Long = 0L,
-        val durationMs: Long = 0L,
-        val isLoading: Boolean = false
-    ) : UiState
-
-    // 2. 定义用户意图 (Event)
-    sealed class Event : UiEvent {
-        object PlayClick : Event()
-        object PauseClick : Event()
-        data class SeekTo(val positionMs: Long) : Event()
+    sealed interface Event : UiEvent {
+        object PlayPause : Event
+        data class SeekTo(val positionMs: Long) : Event
+        data class SelectSong(val song: Song) : Event
+        object NextSong : Event
+        object PreviousSong : Event
     }
 
-    // 3. 定义一次性副作用 (Effect)
-    sealed class Effect : UiEffect {
-        data class ShowToast(val message: String) : Effect()
+    data class State(
+        val isPlaying: Boolean = false,
+        val durationMs: Long = 0L,
+        val currentPositionMs: Long = 0L,
+        val playlist: List<Song> = emptyList(),
+        val currentSong: Song? = null
+    ) : UiState
+
+    sealed interface Effect : UiEffect {
+        data class ShowToast(val message: String) : Effect
     }
 }
