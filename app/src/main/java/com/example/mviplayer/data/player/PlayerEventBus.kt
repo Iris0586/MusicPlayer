@@ -9,6 +9,6 @@ object PlayerEventBus {
     val events = _events.asSharedFlow()
 
     fun post(event: PlayerContract.Event) {
-        _events.tryEmit(event)
+        _events.tryEmit(event)//没有协程上下文,所以是直接emit
     }
 }
